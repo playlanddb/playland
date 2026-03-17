@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Playland — Sistema de Gestión</title>
+
+  <!-- Estilos principales -->
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Chart.js para gráficas del dashboard -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+</head>
+<body>
+
+<!-- ============================================================
+     LOADER GLOBAL
+     Aparece durante operaciones asíncronas con el backend.
+     ============================================================ -->
+<div class="global-loader" id="global-loader">
+  <div class="loader-spinner"></div>
+  <span class="loader-text-el" id="loader-text">Procesando...</span>
+</div>
+
+<!-- ============================================================
+     CONTENEDOR DE TOASTS
+     Las notificaciones se insertan dinámicamente aquí.
+     ============================================================ -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ============================================================
+     MODAL DE CONFIRMACIÓN (Eliminar / acciones críticas)
+     ============================================================ -->
+<div class="confirm-modal" id="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="confirm-title" id="confirm-title">¿Estás seguro?</div>
+    <p class="confirm-message" id="confirm-message">Esta acción no se puede deshacer.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="confirm-cancel">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-ok">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL FORMULARIO DE PEDIDO (Crear / Editar)
+     ============================================================ -->
+<div class="modal-overlay" id="pedido-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Nuevo Pedido</h2>
+      <button class="modal-close" id="btn-cancelar-modal" title="Cerrar">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Campo oculto para ID en modo edición -->
+      <input type="hidden" id="pedido-id" />
+
+      <form id="pedido-form" onsubmit="return false;" autocomplete="off">
+
+        <!-- SECCIÓN: Información del pedido -->
+        <div class="form-grid">
+          <div class="form-divider full-width" style="grid-column:1/-1; margin-bottom:2px;">
+            <span>Información del pedido</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-numero-pedido">N° Pedido <span class="required">*</span></label>
+            <input type="text" id="f-numero-pedido" class="form-input" placeholder="Ej: 1045" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-fecha">Fecha</label>
+            <input type="date" id="f-fecha" class="form-input" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-estado">Estado del pedido</label>
+            <select id="f-estado" class="form-select">
+              <option value="Pendiente de compra">Pendiente de compra</option>
+              <option value="Pedido realizado a la disquera">Pedido realizado a la disquera</option>
+              <option value="En proceso de compra">En proceso de compra</option>
+              <option value="Preventa">Preventa</option>
+              <option value="Despachado">Despachado</option>
+              <option value="En aduanas">En aduanas</option>
+              <option value="En viaje internacional">En viaje internacional</option>
+              <option value="Entregado">Entregado</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-canal">Canal de venta</label>
+            <select id="f-canal" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Página web">Página web</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- SECCIÓN: Producto -->
+        <div class="form-grid" style="margin-top:16px;">
+          <div class="form-divider full-width">
+            <span>Producto</span>
+          </div>
+
+          <!-- Campo de búsqueda en inventario (autocompletado) -->
+          <div class="form-group full-width">
+            <label class="form-label">Buscar en inventario</label>
+            <div class="autocomplete-wrapper">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                id="f-buscar-producto"
+                class="search-input"
+                placeholder="Escribe para buscar un producto del inventario..."
+                autocomplete="off"
+              />
+              <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+            </div>
+            <span class="form-hint">Opcional — selecciona para llenar los campos automáticamente</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-artista">Artista <span class="required">*</span></label>
+            <input type="text" id="f-artista" class="form-input" placeholder="Ej: BTS, Taylor Swift..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-tipo-producto">Tipo de producto</label>
+            <select id="f-tipo-producto" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="CD">CD</option>
+              <option value="CD Autografiado">CD Autografiado</option>
+              <option value="Vinilo">Vinilo</option>
+              <option value="Vinilo Edición Limitada">Vinilo Edición Limitada</option>
+              <option value="Vinilo Autografiado">Vinilo Autografiado</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          <div class="form-group full-width">
+            <label class="form-label" for="f-nombre-producto">Nombre del producto <span class="required">*</span></label>
+            <input type="text" id="f-nombre-producto" class="form-input" placeholder="Ej: Map of the Soul: 7 - Version A" />
+          </div>
+        </div>
+
+        <!-- SECCIÓN: Cliente -->
+        <div class="form-grid" style="margin-top:16px;">
+          <div class="form-divider full-width">
+            <span>Cliente</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-cliente">Nombre del cliente <span class="required">*</span></label>
+            <input type="text" id="f-cliente" class="form-input" placeholder="Nombre completo" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-contacto">N° de contacto</label>
+            <input type="tel" id="f-contacto" class="form-input" placeholder="+57 300 000 0000" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-instagram">Usuario Instagram</label>
+            <input type="text" id="f-instagram" class="form-input" placeholder="@usuario" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-numero-pedido-web">N° Pedido página web</label>
+            <input type="text" id="f-numero-pedido-web" class="form-input" placeholder="N° generado por la web" />
+          </div>
+        </div>
+
+        <!-- SECCIÓN: Precios -->
+        <div class="form-grid-3" style="margin-top:16px;">
+          <div class="form-divider full-width">
+            <span>Precios</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-precio-compra">Precio de compra</label>
+            <input type="number" id="f-precio-compra" class="form-input" placeholder="0" min="0" step="100" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-precio-venta">Precio de venta <span class="required">*</span></label>
+            <input type="number" id="f-precio-venta" class="form-input" placeholder="0" min="0" step="100" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-envio">Costo de envío</label>
+            <input type="number" id="f-envio" class="form-input" placeholder="0" min="0" step="100" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="f-abono">Abono del cliente</label>
+            <input type="number" id="f-abono" class="form-input" placeholder="0" min="0" step="100" />
+          </div>
+
+          <!-- Panel de cálculo automático -->
+          <div class="calc-panel full-width" style="grid-column:1/-1;">
+            <div class="calc-item">
+              <span class="calc-label">Ganancia estimada</span>
+              <span class="calc-value" id="calc-ganancia">$0</span>
+            </div>
+            <div style="width:1px; height:36px; background:var(--border);"></div>
+            <div class="calc-item">
+              <span class="calc-label">Restante por pagar</span>
+              <span class="calc-value" id="calc-restante">$0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN: Nota -->
+        <div style="margin-top:16px;">
+          <div class="form-group">
+            <label class="form-label" for="f-nota">Nota interna</label>
+            <textarea id="f-nota" class="form-textarea" placeholder="Observaciones, instrucciones especiales, etc."></textarea>
+          </div>
+        </div>
+
+      </form>
+    </div><!-- /modal-body -->
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-cancelar-modal-2" onclick="closePedidoModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-pedido"><i class="fa-solid fa-floppy-disk"></i> Guardar pedido</button>
+    </div>
+  </div><!-- /modal-box -->
+</div><!-- /modal-overlay -->
+
+<!-- ============================================================
+     LAYOUT PRINCIPAL DE LA APP
+     ============================================================ -->
+<div class="app-layout">
+
+  <!-- ─── SIDEBAR DE NAVEGACIÓN ─── -->
+  <nav class="sidebar" id="sidebar">
+
+    <!-- Logo Playland -->
+    <div class="sidebar-logo">
+      <div class="logo-icon"><img src="img/un.png" alt="" style="width: 100%; height: auto;"></div>
+      <div class="logo-text">
+        <span class="logo-name">Playland</span>
+        <span class="logo-tagline">INVENTARIO</span>
+      </div>
+    </div>
+
+    <!-- Menú de navegación -->
+    <div class="nav-menu">
+      <span class="nav-label">Principal</span>
+
+      <button class="nav-item nav-active" data-section="dashboard">
+        <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+        Dashboard
+      </button>
+
+      <button class="nav-item" data-section="pedidos">
+        <span class="nav-icon"><i class="fa-solid fa-box"></i></span>
+        Pedidos
+      </button>
+
+      <button class="nav-item" data-section="inventario">
+        <span class="nav-icon"><i class="fa-solid fa-music"></i></span>
+        Inventario
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      Playland System v1.0
+    </div>
+  </nav>
+
+  <!-- ─── CONTENIDO PRINCIPAL ─── -->
+  <div class="main-content">
+
+    <!-- Header superior -->
+    <header class="top-header">
+      <div>
+        <button class="menu-toggle" id="menu-toggle">☰</button>
+      </div>
+      <div style="text-align:center;">
+        <div class="header-title">Sistema de Gestión</div>
+        <div class="header-subtitle">Productos musicales coleccionables</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary btn-sm" id="btn-nuevo-pedido">
+          + Nuevo Pedido
+        </button>
+      </div>
+    </header>
+
+    <!-- Área de contenido -->
+    <div class="content-area">
+
+      <!-- ─── BANNER DE CONFIGURACIÓN ─── -->
+      <!-- Visible hasta que el usuario configure la URL del backend -->
+      <div class="setup-banner" id="setup-banner">
+        <div class="setup-banner-icon">🔧</div>
+        <div>
+          <!-- 
+          <div class="setup-banner-title">Configuración inicial requerida</div>
+          <div class="setup-banner-text">
+            Para conectar con Google Sheets, abre el archivo <code>js/api.js</code> y reemplaza 
+            <code>API_URL</code> con la URL de tu Web App de Google Apps Script.<br />
+            Luego abre <code>apps_script/Code.gs</code>, pégalo en Apps Script y haz Deploy → Web App.
+          </div>
+        </div>
+      </div>
+-->
+      <!-- ──────────────────────────────────────────────────
+           SECCIÓN: DASHBOARD
+           ────────────────────────────────────────────────── -->
+      <section class="section-content section-active" id="section-dashboard">
+
+        <div class="section-header">
+          <h1 class="section-title">
+            <span>Resumen general</span>
+            Dashboard
+          </h1>
+        </div>
+
+        <!-- Tarjetas de estadísticas -->
+        <div class="stats-grid">
+
+          <div class="stat-card accent-gold">
+            <div class="stat-icon"><i class="fa-solid fa-box" style="color: #9e7a23;"></i></div>
+            <div class="stat-value" id="stat-total-pedidos">0</div>
+            <div class="stat-label">Total pedidos</div>
+          </div>
+
+          <div class="stat-card accent-purple">
+            <div class="stat-icon"><i class="fa-solid fa-clock" style="color: #6b5aa3;"></i></div>
+            <div class="stat-value" id="stat-preventa">0</div>
+            <div class="stat-label">En preventa</div>
+          </div>
+
+          <div class="stat-card accent-blue">
+            <div class="stat-icon"><i class="fa-solid fa-truck" style="color: #416aa3;"></i></div>
+            <div class="stat-value" id="stat-transito">0</div>
+            <div class="stat-label">En tránsito</div>
+          </div>
+
+          <div class="stat-card accent-green">
+            <div class="stat-icon"><i class="fa-solid fa-check" style="color: #2a6d4b;"></i></div>
+            <div class="stat-value" id="stat-entregados">0</div>
+            <div class="stat-label">Entregados</div>
+          </div>
+
+          <div class="stat-card accent-orange">
+            <div class="stat-icon"><i class="fa-solid fa-sack-dollar" style="color: #7a4b2c;"></i></div>
+            <div class="stat-value" id="stat-ventas" style="font-size:18px;">$0</div>
+            <div class="stat-label">Total ventas</div>
+          </div>
+
+          <div class="stat-card accent-gold">
+            <div class="stat-icon"><i class="fa-solid fa-arrow-trend-up" style="color: #775e27;"></i></div>
+            <div class="stat-value" id="stat-ganancias" style="font-size:18px;">$0</div>
+            <div class="stat-label">Ganancias totales</div>
+          </div>
+
+        </div>
+
+        <!-- Gráficas -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">Pedidos por estado</div>
+            <div class="chart-container">
+              <canvas id="chart-estados"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-title">Pedidos por canal de venta</div>
+            <div class="chart-container">
+              <canvas id="chart-canales"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ──────────────────────────────────────────────────
+           SECCIÓN: PEDIDOS
+           ────────────────────────────────────────────────── -->
+      <section class="section-content" id="section-pedidos">
+
+        <div class="section-header">
+          <h1 class="section-title">
+            <span>Gestión de pedidos</span>
+            Pedidos
+          </h1>
+          <button class="btn btn-primary" onclick="openPedidoModal(null)">
+            + Nuevo Pedido
+          </button>
+        </div>
+
+        <!-- Barra de búsqueda y acciones -->
+        <div class="pedidos-toolbar">
+          <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input
+              type="text"
+              id="search-input"
+              class="search-input"
+              placeholder="Buscar por pedido, cliente, producto, artista..."
+            />
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-limpiar-filtros">
+            🗑 Limpiar filtros
+            <span class="filtros-activos-badge" id="filtros-activos-badge">0</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="cargarPedidos()">
+            ↺ Actualizar
+          </button>
+        </div>
+
+        <!-- Filtros avanzados -->
+        <div class="filters-row">
+          <select id="filtro-estado" class="filter-select">
+            <option value="">Todos los estados</option>
+            <option value="Pendiente de compra">Pendiente de compra</option>
+            <option value="Pedido realizado a la disquera">Pedido a disquera</option>
+            <option value="En proceso de compra">En proceso</option>
+            <option value="Preventa">Preventa</option>
+            <option value="Despachado">Despachado</option>
+            <option value="En aduanas">En aduanas</option>
+            <option value="En viaje internacional">En viaje</option>
+            <option value="Entregado">Entregado</option>
+          </select>
+
+          <select id="filtro-tipo" class="filter-select">
+            <option value="">Todos los tipos</option>
+            <option value="CD">CD</option>
+            <option value="CD Autografiado">CD Autografiado</option>
+            <option value="Vinilo">Vinilo</option>
+            <option value="Vinilo Edición Limitada">Vinilo Edición Limitada</option>
+            <option value="Vinilo Autografiado">Vinilo Autografiado</option>
+          </select>
+
+          <select id="filtro-canal" class="filter-select">
+            <option value="">Todos los canales</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Página web">Página web</option>
+          </select>
+
+          <input type="date" id="filtro-fecha-desde" class="filter-input-date" title="Desde" />
+          <input type="date" id="filtro-fecha-hasta" class="filter-input-date" title="Hasta" />
+        </div>
+
+        <!-- Contador de resultados -->
+        <div class="results-info">
+          <span class="results-count">
+            <strong id="resultado-count">0 pedidos</strong>
+          </span>
+        </div>
+
+        <!-- Tabla de pedidos -->
+        <div class="table-wrapper">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Pedido</th>
+                <th>Cliente</th>
+                <th>Producto</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Venta</th>
+                <th>Ganancia</th>
+                <th>Restante</th>
+                <th>Canal</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-pedidos-body">
+              <tr>
+                <td colspan="10" class="empty-state">
+                  <div class="empty-icon">📦</div>
+                  <p>Cargando pedidos...</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+
+      <!-- ──────────────────────────────────────────────────
+           SECCIÓN: INVENTARIO
+           ────────────────────────────────────────────────── -->
+      <section class="section-content" id="section-inventario">
+
+        <div class="section-header">
+          <h1 class="section-title">
+            <span>Stock de productos</span>
+            Inventario
+          </h1>
+          <button class="btn btn-primary" onclick="abrirModalProducto(null)">
+            + Agregar Producto
+          </button>
+        </div>
+
+        <!-- Tarjetas de stats del inventario -->
+        <div class="stats-grid" style="margin-bottom:24px;">
+          <div class="stat-card accent-gold">
+            <div class="stat-icon"><i class="fa-solid fa-music" style="color: #9e7a23;"></i></div>
+            <div class="stat-value" id="inv-stat-total">0</div>
+            <div class="stat-label">Productos</div>
+          </div>
+          <div class="stat-card accent-green">
+            <div class="stat-icon"><i class="fa-solid fa-check" style="color: #338c5a;"></i></div>
+            <div class="stat-value" id="inv-stat-disponible">0</div>
+            <div class="stat-label">Disponibles</div>
+          </div>
+          <div class="stat-card accent-orange">
+            <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation" style="color: #9e5f31;"></i></div>
+            <div class="stat-value" id="inv-stat-bajo">0</div>
+            <div class="stat-label">Stock bajo</div>
+          </div>
+          <div class="stat-card accent-blue">
+            <div class="stat-icon"><i class="fa-solid fa-x" style="color: #416aa3;"></i></div>
+            <div class="stat-value" id="inv-stat-agotado">0</div>
+            <div class="stat-label">Agotados</div>
+          </div>
+          <div class="stat-card accent-purple">
+            <div class="stat-icon"><i class="fa-solid fa-arrow-trend-up" style="color: #5d4f8d;"></i></div>
+            <div class="stat-value" id="inv-stat-unidades">0</div>
+            <div class="stat-label">Unidades totales</div>
+          </div>
+        </div>
+
+        <!-- Barra de búsqueda y filtros -->
+        <div class="pedidos-toolbar">
+          <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input
+              type="text"
+              id="inv-search-input"
+              class="search-input"
+              placeholder="Buscar por producto, artista..."
+            />
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-limpiar-filtros-inv">
+            🗑 Limpiar filtros
+            <span class="filtros-activos-badge" id="inv-filtros-badge">0</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="cargarInventario()">
+            ↺ Actualizar
+          </button>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters-row">
+          <select id="inv-filtro-tipo" class="filter-select">
+            <option value="">Todos los tipos</option>
+            <option value="CD">CD</option>
+            <option value="CD Autografiado">CD Autografiado</option>
+            <option value="Vinilo">Vinilo</option>
+            <option value="Vinilo Edición Limitada">Vinilo Edición Limitada</option>
+            <option value="Vinilo Autografiado">Vinilo Autografiado</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <select id="inv-filtro-estado" class="filter-select">
+            <option value="">Todos los estados</option>
+            <option value="Disponible">Disponible</option>
+            <option value="Stock bajo">Stock bajo</option>
+            <option value="Agotado">Agotado</option>
+          </select>
+        </div>
+
+        <!-- Contador -->
+        <div class="results-info">
+          <span class="results-count">
+            <strong id="inv-resultado-count">0 productos</strong>
+          </span>
+        </div>
+
+        <!-- Tabla de inventario -->
+        <div class="table-wrapper">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Tipo</th>
+                <th>Stock</th>
+                <th>Costo unitario</th>
+                <th>Precio venta</th>
+                <th>Estado</th>
+                <th>Nota</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-inventario-body">
+              <tr>
+                <td colspan="8" class="empty-state">
+                  <div class="empty-icon">🎵</div>
+                  <p>Cargando inventario...</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+
+    </div><!-- /content-area -->
+  </div><!-- /main-content -->
+</div><!-- /app-layout -->
+
+<!-- ============================================================
+     MODAL: AGREGAR / EDITAR PRODUCTO
+     ============================================================ -->
+<div class="modal-overlay" id="producto-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="producto-modal-title">Agregar Producto</h2>
+      <button class="modal-close" onclick="cerrarModalProducto()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="producto-id" />
+      <form id="producto-form" onsubmit="return false;" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Artista <span class="required">*</span></label>
+            <input type="text" id="pf-artista" class="form-input" placeholder="Ej: BTS, Taylor Swift..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de producto</label>
+            <select id="pf-tipo" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="CD">CD</option>
+              <option value="CD Autografiado">CD Autografiado</option>
+              <option value="Vinilo">Vinilo</option>
+              <option value="Vinilo Edición Limitada">Vinilo Edición Limitada</option>
+              <option value="Vinilo Autografiado">Vinilo Autografiado</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Nombre del producto <span class="required">*</span></label>
+            <input type="text" id="pf-nombre" class="form-input" placeholder="Ej: Map of the Soul: 7 - Version A" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unidades disponibles</label>
+            <input type="number" id="pf-unidades" class="form-input" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Costo unitario</label>
+            <input type="number" id="pf-costo" class="form-input" placeholder="0" min="0" step="100" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Precio de venta sugerido</label>
+            <input type="number" id="pf-pvp" class="form-input" placeholder="0" min="0" step="100" />
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Nota</label>
+            <textarea id="pf-nota" class="form-textarea" placeholder="Observaciones sobre este producto..."></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="cerrarModalProducto()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarProducto()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: AJUSTE DE STOCK
+     ============================================================ -->
+<div class="modal-overlay" id="ajuste-modal">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="ajuste-modal-title">Ajustar Stock</h2>
+      <button class="modal-close" onclick="cerrarAjusteModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ajuste-id" />
+      <input type="hidden" id="ajuste-tipo" />
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+        Producto: <strong id="ajuste-nombre" style="color:var(--text-primary);"></strong>
+      </p>
+      <div class="form-group">
+        <label class="form-label">Cantidad de unidades</label>
+        <input type="number" id="ajuste-cantidad" class="form-input" placeholder="Ej: 5" min="1" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="cerrarAjusteModal()">Cancelar</button>
+      <button class="btn btn-primary" id="ajuste-btn-confirm" onclick="confirmarAjusteStock()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SCRIPTS - Cargados en orden de dependencias
+     ============================================================ -->
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/pedidos.js"></script>
+<script src="js/filtros.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/inventario.js"></script>
+<script src="js/app.js"></script>
+
+<script src="https://kit.fontawesome.com/a0ad5aaff5.js" crossorigin="anonymous"></script>
+</body>
+</html>
