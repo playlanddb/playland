@@ -275,7 +275,8 @@ function getEstadoBadge(estado) {
     'Despachado': 'badge-shipped',
     'En aduanas': 'badge-customs',
     'En viaje internacional': 'badge-transit',
-    'Entregado': 'badge-delivered'
+    'Entregado': 'badge-delivered',
+    'Cancelado': 'badge-cancelled'
   };
   const clase = clases[estado] || 'badge-default';
   return `<span class="badge ${clase}">${estado || '—'}</span>`;

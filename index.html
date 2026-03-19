@@ -10,6 +10,7 @@
 
   <!-- Chart.js para gráficas del dashboard -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
 <body>
 
@@ -86,6 +87,7 @@
               <option value="En aduanas">En aduanas</option>
               <option value="En viaje internacional">En viaje internacional</option>
               <option value="Entregado">Entregado</option>
+              <option value="Cancelado">Cancelado</option>
             </select>
           </div>
 
@@ -226,7 +228,9 @@
 
     <div class="modal-footer">
       <button class="btn btn-secondary" id="btn-cancelar-modal-2" onclick="closePedidoModal()">Cancelar</button>
-      <button class="btn btn-primary" id="btn-guardar-pedido"><i class="fa-solid fa-floppy-disk"></i> Guardar pedido</button>
+      <button class="btn btn-primary" id="btn-guardar-pedido">
+        
+      </i> Guardar pedido</button>
     </div>
   </div><!-- /modal-box -->
 </div><!-- /modal-overlay -->
@@ -234,6 +238,62 @@
 <!-- ============================================================
      LAYOUT PRINCIPAL DE LA APP
      ============================================================ -->
+<!-- ============================================================
+     PANTALLA DE LOGIN
+     ============================================================ -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+
+    <!-- Logo -->
+    <div class="login-logo">
+      <div class="login-logo-img">
+        <img src="img/un.png" alt="Playland" />
+      </div>
+      <h1 class="login-title">Playland</h1>
+      <p class="login-subtitle">Sistema de Gestión</p>
+    </div>
+
+    <!-- Formulario -->
+    <form id="login-form" onsubmit="return false;" autocomplete="off">
+      <div class="login-field">
+        <label class="login-label">Usuario</label>
+        <input
+          type="text"
+          id="login-usuario"
+          class="login-input"
+          placeholder="Ingresa tu usuario"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="login-field">
+        <label class="login-label">Contraseña</label>
+        <div class="login-pass-wrapper">
+          <input
+            type="password"
+            id="login-password"
+            class="login-input"
+            placeholder="Ingresa tu contraseña"
+            autocomplete="off"
+          />
+          <button type="button" class="login-toggle-pass" onclick="togglePasswordVisibility()" tabindex="-1">
+            <i class="fa-solid fa-eye" id="pass-icon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="login-error" id="login-error" style="display:none;">
+        Usuario o contraseña incorrectos
+      </div>
+
+      <button type="submit" class="btn btn-primary login-btn" id="login-btn" onclick="intentarLogin()">
+        Iniciar sesión
+      </button>
+    </form>
+
+  </div>
+</div>
+
 <div class="app-layout">
 
   <!-- ─── SIDEBAR DE NAVEGACIÓN ─── -->
@@ -286,8 +346,12 @@
         <div class="header-subtitle">Productos musicales coleccionables</div>
       </div>
       <div class="header-actions">
+        <span class="role-badge" id="role-badge"></span>
         <button class="btn btn-primary btn-sm" id="btn-nuevo-pedido">
           + Nuevo Pedido
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="cerrarSesion()" title="Cerrar sesión">
+          <i class="fa-solid fa-right-from-bracket"></i>
         </button>
       </div>
     </header>
@@ -298,7 +362,8 @@
       <!-- ─── BANNER DE CONFIGURACIÓN ─── -->
       <!-- Visible hasta que el usuario configure la URL del backend -->
       <div class="setup-banner" id="setup-banner">
-        <div class="setup-banner-icon">🔧</div>
+        <div class="setup-banner-icon"><i class="fa-solid fa-screwdriver-wrench"></i>
+        </div>
         <div>
           <!-- 
           <div class="setup-banner-title">Configuración inicial requerida</div>
@@ -429,6 +494,7 @@
             <option value="En aduanas">En aduanas</option>
             <option value="En viaje internacional">En viaje</option>
             <option value="Entregado">Entregado</option>
+            <option value="Cancelado">Cancelado</option>
           </select>
 
           <select id="filtro-tipo" class="filter-select">
@@ -663,7 +729,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="cerrarModalProducto()">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarProducto()">💾 Guardar</button>
+      <button class="btn btn-primary" onclick="guardarProducto()"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
     </div>
   </div>
 </div>
@@ -705,6 +771,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/inventario.js"></script>
 <script src="js/app.js"></script>
+<script src="js/auth.js"></script>
 
 <script src="https://kit.fontawesome.com/a0ad5aaff5.js" crossorigin="anonymous"></script>
 </body>

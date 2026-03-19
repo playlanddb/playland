@@ -84,17 +84,23 @@ function renderizarTabla(pedidos) {
     return `
     <tr class="table-row" data-id="${id}">
       <td data-label="Pedido">
-        <span class="order-number">#${numPedido}</span>
-        ${numWeb ? `<span class="order-web-num">Web: ${numWeb}</span>` : ''}
-        <span class="order-date">${formatDate(p.fecha)}</span>
+        <div>
+          <span class="order-number">#${numPedido}</span>
+          ${numWeb ? `<span class="order-web-num">Web: ${numWeb}</span>` : ''}
+          <span class="order-date">${formatDate(p.fecha)}</span>
+        </div>
       </td>
       <td data-label="Cliente">
-        <span class="client-name">${cliente}</span>
-        ${instagram ? `<span class="instagram-handle">@${instagram}</span>` : ''}
+        <div>
+          <span class="client-name">${cliente}</span>
+          ${instagram ? `<span class="instagram-handle">@${instagram}</span>` : ''}
+        </div>
       </td>
       <td data-label="Producto">
-        <span class="product-name">${producto}</span>
-        <span class="artist-name">${artista}</span>
+        <div>
+          <span class="product-name">${producto}</span>
+          <span class="artist-name">${artista}</span>
+        </div>
       </td>
       <td data-label="Tipo">
         <span class="product-type">${tipo}</span>
