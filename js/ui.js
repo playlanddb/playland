@@ -275,6 +275,7 @@ function getEstadoBadge(estado) {
     'Despachado': 'badge-shipped',
     'En aduanas': 'badge-customs',
     'En viaje internacional': 'badge-transit',
+    'En bodega': 'badge-warehouse',
     'Entregado': 'badge-delivered',
     'Cancelado': 'badge-cancelled'
   };

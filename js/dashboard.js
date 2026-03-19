@@ -149,6 +149,7 @@ function renderizarGraficaEstados(porEstado) {
     'Despachado': '#34d399',
     'En aduanas': '#fb923c',
     'En viaje internacional': '#38bdf8',
+    'En bodega': '#818cf8',
     'Entregado': '#4ade80'
   };
 
