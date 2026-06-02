@@ -147,6 +147,8 @@ function openPedidoModal(pedido = null) {
   const buscador = document.getElementById('f-buscar-producto');
   if (buscador) buscador.value = '';
   cerrarDropdown();
+  const productoIdInput = document.getElementById('f-producto-inventario-id');
+  if (productoIdInput) productoIdInput.value = '';
 
   if (pedido) {
     // Modo edición: llenar formulario con datos existentes

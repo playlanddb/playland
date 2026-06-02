@@ -517,6 +517,16 @@ function initAutocompletadoProducto() {
       cerrarDropdown();
     }
   });
+  // Limpiar id_producto si el usuario edita los campos manualmente
+  ["f-nombre-producto", "f-artista", "f-tipo-producto"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", () => {
+        const campo = document.getElementById("f-producto-inventario-id");
+        if (campo) campo.value = "";
+      });
+    }
+  });
 }
 
 /**
@@ -524,17 +534,16 @@ function initAutocompletadoProducto() {
  * @param {Object} producto - Producto del inventario
  */
 function seleccionarProductoInventario(producto) {
-  // Llenar campos automáticamente
   const nombre = document.getElementById("f-nombre-producto");
   const artista = document.getElementById("f-artista");
   const tipo = document.getElementById("f-tipo-producto");
+  const productoIdInput = document.getElementById("f-producto-inventario-id"); // NUEVO
 
   if (nombre) nombre.value = producto.nombre_producto || "";
   if (artista) artista.value = producto.artista || "";
   if (tipo) tipo.value = producto.tipo_producto || "";
+  if (productoIdInput) productoIdInput.value = producto.id_producto || ""; // NUEVO
 
-  // También llenar precio de venta sugerido si está vacío
-  // Llenar precio de venta y precio de compra
   const pvp = document.getElementById("f-precio-venta");
   if (pvp && !pvp.value && producto.precio_venta_sugerido) {
     pvp.value = producto.precio_venta_sugerido;
@@ -547,7 +556,6 @@ function seleccionarProductoInventario(producto) {
 
   calcularTotales();
 
-  // Limpiar el buscador y cerrar dropdown
   const input = document.getElementById("f-buscar-producto");
   if (input) input.value = "";
   cerrarDropdown();

@@ -21,7 +21,8 @@ const COLUMNS = [
   'id_pedido', 'numero_pedido', 'fecha', 'artista', 'tipo_producto',
   'nombre_producto', 'estado_pedido', 'precio_compra', 'precio_venta',
   'costo_envio', 'ganancia', 'cliente', 'numero_contacto',
-  'usuario_instagram', 'canal_venta', 'nota', 'abono_cliente', 'restante_por_pagar'
+  'usuario_instagram', 'canal_venta', 'nota', 'abono_cliente', 'restante_por_pagar',
+  'numero_pedido_web'
 ];
 
 const INVENTORY_COLUMNS = [
@@ -109,10 +110,26 @@ function createPedido(params) {
     precioVenta - precioCompra - costoEnvio,
     params.cliente || '', params.numero_contacto || '',
     params.usuario_instagram || '', params.canal_venta || '',
-    params.nota || '', abono, precioVenta - abono
+    params.nota || '', abono, precioVenta - abono,
+    params.numero_pedido_web || ''
   ];
 
   sheet.appendRow(newRow);
+
+  // ── NUEVO: descontar stock si el pedido viene vinculado a un producto del inventario
+  if (params.id_producto_inventario) {
+    try {
+      ajustarStock({
+        id_producto: params.id_producto_inventario,
+        cantidad: 1,
+        tipo: 'salida'
+      });
+    } catch (e) {
+      // No bloquear la creación del pedido si el ajuste falla
+      Logger.log('Error ajustando stock: ' + e.message);
+    }
+  }
+
   return { success: true, message: 'Pedido creado correctamente' };
 }
 
@@ -140,7 +157,8 @@ function updatePedido(params) {
     precioVenta - precioCompra - costoEnvio,
     params.cliente || '', params.numero_contacto || '',
     params.usuario_instagram || '', params.canal_venta || '',
-    params.nota || '', abono, precioVenta - abono
+    params.nota || '', abono, precioVenta - abono,
+    params.numero_pedido_web || ''
   ];
 
   sheet.getRange(rowIndex, 1, 1, COLUMNS.length).setValues([updatedRow]);

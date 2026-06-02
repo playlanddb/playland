@@ -67,18 +67,18 @@ function renderizarTabla(pedidos) {
   tbody.innerHTML = pedidos.map(p => {
     // Convertir todos los campos a string para evitar errores con valores
     // numéricos que llegan de Google Sheets
-    const id          = String(p.id_pedido || '');
-    const numPedido   = String(p.numero_pedido || '—');
-    const numWeb      = String(p.numero_pedido_web || '');
-    const cliente     = String(p.cliente || '—');
-    const instagram   = String(p.usuario_instagram || '');
-    const producto    = String(p.nombre_producto || '—');
-    const artista     = String(p.artista || '—');
-    const tipo        = String(p.tipo_producto || '—');
-    const canal       = String(p.canal_venta || '');
+    const id = String(p.id_pedido || '');
+    const numPedido = String(p.numero_pedido || '—');
+    const numWeb = String(p.numero_pedido_web || '');
+    const cliente = String(p.cliente || '—');
+    const instagram = String(p.usuario_instagram || '');
+    const producto = String(p.nombre_producto || '—');
+    const artista = String(p.artista || '—');
+    const tipo = String(p.tipo_producto || '—');
+    const canal = String(p.canal_venta || '');
 
     // Escapar comillas simples para uso seguro en atributos onclick
-    const numEsc     = numPedido.replace(/'/g, "\\'");
+    const numEsc = numPedido.replace(/'/g, "\\'");
     const clienteEsc = cliente.replace(/'/g, "\\'");
 
     return `
@@ -167,22 +167,23 @@ async function guardarPedido() {
   const esEdicion = Boolean(idExistente);
 
   const datos = {
-    numero_pedido:         document.getElementById('f-numero-pedido').value.trim(),
-    fecha:                 document.getElementById('f-fecha').value,
-    artista:               document.getElementById('f-artista').value.trim(),
-    tipo_producto:         document.getElementById('f-tipo-producto').value,
-    nombre_producto:       document.getElementById('f-nombre-producto').value.trim(),
-    estado_pedido:         document.getElementById('f-estado').value,
-    cliente:               document.getElementById('f-cliente').value.trim(),
-    numero_contacto:       document.getElementById('f-contacto').value.trim(),
-    usuario_instagram:     document.getElementById('f-instagram').value.trim().replace('@', ''),
-    numero_pedido_web:     document.getElementById('f-numero-pedido-web').value.trim(),
-    canal_venta:           document.getElementById('f-canal').value,
-    precio_compra:         document.getElementById('f-precio-compra').value || '0',
-    precio_venta:          document.getElementById('f-precio-venta').value || '0',
-    costo_envio:           document.getElementById('f-envio').value || '0',
-    abono_cliente:         document.getElementById('f-abono').value || '0',
-    nota:                  document.getElementById('f-nota').value.trim()
+    numero_pedido: document.getElementById('f-numero-pedido').value.trim(),
+    fecha: document.getElementById('f-fecha').value,
+    artista: document.getElementById('f-artista').value.trim(),
+    tipo_producto: document.getElementById('f-tipo-producto').value,
+    nombre_producto: document.getElementById('f-nombre-producto').value.trim(),
+    estado_pedido: document.getElementById('f-estado').value,
+    cliente: document.getElementById('f-cliente').value.trim(),
+    numero_contacto: document.getElementById('f-contacto').value.trim(),
+    usuario_instagram: document.getElementById('f-instagram').value.trim().replace('@', ''),
+    numero_pedido_web: document.getElementById('f-numero-pedido-web').value.trim(),
+    canal_venta: document.getElementById('f-canal').value,
+    precio_compra: document.getElementById('f-precio-compra').value || '0',
+    precio_venta: document.getElementById('f-precio-venta').value || '0',
+    costo_envio: document.getElementById('f-envio').value || '0',
+    abono_cliente: document.getElementById('f-abono').value || '0',
+    nota: document.getElementById('f-nota').value.trim(),
+    id_producto_inventario: document.getElementById('f-producto-inventario-id')?.value || ''
   };
 
   if (esEdicion) datos.id_pedido = idExistente;
@@ -199,8 +200,16 @@ async function guardarPedido() {
     }
 
     closePedidoModal();
-    await cargarPedidos();
+
+    if (esEdicion) {
+      await cargarPedidos();
+      aplicarFiltros();
+    } else {
+      await cargarPedidos();
+    }
+
     await actualizarDashboard();
+    await cargarInventario();
 
   } catch (error) {
     showToast('Error al guardar: ' + error.message, 'error');
