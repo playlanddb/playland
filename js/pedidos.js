@@ -269,7 +269,9 @@ async function eliminarPedido(idPedido) {
     await apiDeletePedido(idPedido);
     showToast('Pedido eliminado correctamente', 'success');
     await cargarPedidos();
+    aplicarFiltros();
     await actualizarDashboard();
+    await cargarInventario();
   } catch (error) {
     showToast('Error al eliminar: ' + error.message, 'error');
     console.error('Error eliminarPedido:', error);
