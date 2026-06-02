@@ -139,14 +139,14 @@ function aplicarFiltros() {
   if (filtrosActivos.fechaDesde) {
     resultado = resultado.filter(p => {
       if (!p.fecha) return false;
-      return p.fecha >= filtrosActivos.fechaDesde;
+      return p.fecha.substring(0, 10) >= filtrosActivos.fechaDesde;
     });
   }
 
   if (filtrosActivos.fechaHasta) {
     resultado = resultado.filter(p => {
       if (!p.fecha) return false;
-      return p.fecha <= filtrosActivos.fechaHasta;
+      return p.fecha.substring(0, 10) <= filtrosActivos.fechaHasta;
     });
   }
 
