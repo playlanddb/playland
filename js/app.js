@@ -22,10 +22,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   initFormulario();
   initFiltrosInventario();
   initAutocompletadoProducto();
+  initContabilidad();
 
   await cargarPedidos();
   await actualizarDashboard();
   await cargarInventario();
+  await cargarContabilidad();
 
   mostrarSeccion('dashboard');
 

@@ -318,7 +318,12 @@
           <span class="nav-icon"><i class="fa-solid fa-music"></i></span>
           Inventario
         </button>
+        <button class="nav-item" data-section="contabilidad">
+          <span class="nav-icon"><i class="fa-solid fa-receipt"></i></span>
+          Contabilidad
+        </button>
       </div>
+
 
       <div class="sidebar-footer">
         Playland System v1.0
@@ -655,6 +660,170 @@
               </div>
 
             </section>
+            <!-- ──────────────────────────────────────────────────
+     SECCIÓN: CONTABILIDAD
+     ────────────────────────────────────────────────── -->
+            <section class="section-content" id="section-contabilidad">
+
+              <div class="section-header">
+                <h1 class="section-title">
+                  <span>Control de ingresos y egresos</span>
+                  Contabilidad
+                </h1>
+                <!-- Selector de período -->
+                <div class="periodo-selector">
+                  <button class="btn btn-secondary btn-sm" id="btn-periodo-anterior">‹</button>
+                  <span class="periodo-label" id="periodo-label">Cargando...</span>
+                  <button class="btn btn-secondary btn-sm" id="btn-periodo-siguiente">›</button>
+                </div>
+              </div>
+
+              <!-- Tarjetas resumen -->
+              <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
+                <div class="stat-card accent-green">
+                  <div class="stat-icon"><i class="fa-solid fa-arrow-up" style="color:#2a6d4b;"></i></div>
+                  <div class="stat-value" id="cont-total-ingresos" style="font-size:20px;">$0</div>
+                  <div class="stat-label">Total ingresos</div>
+                  <div style="font-size:11px; color:var(--text-muted); margin-top:4px;" id="cont-count-ingresos">0
+                    movimientos</div>
+                </div>
+                <div class="stat-card accent-orange">
+                  <div class="stat-icon"><i class="fa-solid fa-arrow-down" style="color:#9e5f31;"></i></div>
+                  <div class="stat-value" id="cont-total-egresos" style="font-size:20px;">$0</div>
+                  <div class="stat-label">Total egresos</div>
+                  <div style="font-size:11px; color:var(--text-muted); margin-top:4px;" id="cont-count-egresos">0
+                    movimientos</div>
+                </div>
+                <div class="stat-card accent-blue">
+                  <div class="stat-icon"><i class="fa-solid fa-wallet" style="color:#416aa3;"></i></div>
+                  <div class="stat-value" id="cont-balance" style="font-size:20px;">$0</div>
+                  <div class="stat-label">Balance del período</div>
+                  <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Resultado neto</div>
+                </div>
+              </div>
+
+              <!-- Layout: tabla + formulario -->
+              <div class="cont-layout">
+
+                <!-- Tabla de movimientos -->
+                <div class="cont-tabla-wrapper">
+                  <div
+                    style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                    <h3 style="font-size:15px; font-weight:700; color:var(--text-primary);">Movimientos</h3>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                      <input type="date" id="cont-filtro-desde" class="filter-input-date" />
+                      <input type="date" id="cont-filtro-hasta" class="filter-input-date" />
+                      <select id="cont-filtro-tipo" class="filter-select" style="min-width:110px;">
+                        <option value="">Todos</option>
+                        <option value="Ingreso">Ingresos</option>
+                        <option value="Egreso">Egresos</option>
+                      </select>
+                      <select id="cont-filtro-cuenta" class="filter-select" style="min-width:130px;">
+                        <option value="">Todas las cuentas</option>
+                        <option value="Caja">Caja</option>
+                        <option value="Bancolombia">Bancolombia</option>
+                        <option value="Nequi">Nequi</option>
+                        <option value="Davivienda">Davivienda</option>
+                      </select>
+                      <button class="btn btn-secondary btn-sm" onclick="aplicarFiltrosContabilidad()">
+                        <i class="fa-solid fa-magnifying-glass"></i> Buscar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="table-wrapper">
+                    <table class="orders-table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Tipo</th>
+                          <th>Concepto</th>
+                          <th>Cuenta</th>
+                          <th>Valor</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tabla-contabilidad-body">
+                        <tr>
+                          <td colspan="6" class="empty-state">
+                            <div class="empty-icon">📊</div>
+                            <p>Cargando movimientos...</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                      <tfoot id="cont-totales-footer"></tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Formulario nuevo movimiento -->
+                <div class="cont-form-wrapper">
+                  <h3 style="font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:20px;">
+                    <span id="cont-form-titulo">Nuevo Movimiento</span>
+                  </h3>
+                  <input type="hidden" id="cont-mov-id" />
+
+                  <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">Fecha <span class="required">*</span></label>
+                    <input type="date" id="cont-fecha" class="form-input" />
+                  </div>
+
+                  <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">Tipo <span class="required">*</span></label>
+                    <select id="cont-tipo" class="form-select">
+                      <option value="Ingreso">Ingreso</option>
+                      <option value="Egreso">Egreso</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">Concepto <span class="required">*</span></label>
+                    <input type="text" id="cont-concepto" class="form-input" placeholder="Ej: Venta Pedido #018" />
+                  </div>
+
+                  <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">Cuenta <span class="required">*</span></label>
+                    <select id="cont-cuenta" class="form-select">
+                      <option value="Caja">Caja</option>
+                      <option value="Bancolombia">Bancolombia</option>
+                      <option value="Nequi">Nequi</option>
+                      <option value="Davivienda">Davivienda</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group" style="margin-bottom:20px;">
+                    <label class="form-label">Valor <span class="required">*</span></label>
+                    <input type="number" id="cont-valor" class="form-input" placeholder="0" min="0" step="1000" />
+                  </div>
+
+                  <button class="btn btn-primary" style="width:100%; justify-content:center;"
+                    onclick="guardarMovimiento()">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span id="cont-btn-texto">Guardar Movimiento</span>
+                  </button>
+
+                  <div id="cont-btn-cancelar-wrapper" style="display:none; margin-top:8px;">
+                    <button class="btn btn-secondary" style="width:100%; justify-content:center;"
+                      onclick="cancelarEdicionMovimiento()">
+                      Cancelar edición
+                    </button>
+                  </div>
+
+                  <p style="font-size:11px; color:var(--text-muted); margin-top:12px;">Los campos con * son obligatorios
+                  </p>
+
+                  <!-- Resumen por cuenta -->
+                  <div style="margin-top:28px; border-top:1px solid var(--border); padding-top:20px;">
+                    <div
+                      style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px;">
+                      Saldo por cuenta
+                    </div>
+                    <div id="cont-saldo-cuentas" style="display:flex; flex-direction:column; gap:8px;"></div>
+                  </div>
+                </div>
+
+              </div>
+            </section>
 
           </div><!-- /content-area -->
         </div><!-- /main-content -->
@@ -760,6 +929,7 @@
       <script src="js/inventario.js"></script>
       <script src="js/app.js"></script>
       <script src="js/auth.js"></script>
+      <script src="js/contabilidad.js"></script>
 
       <script src="https://kit.fontawesome.com/a0ad5aaff5.js" crossorigin="anonymous"></script>
 </body>

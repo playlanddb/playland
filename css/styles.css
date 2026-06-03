@@ -1754,6 +1754,91 @@ body {
   color: var(--error);
   border-color: rgba(248,113,113,0.25);
 }
+/* ============================================================
+   CONTABILIDAD
+   ============================================================ */
+
+.cont-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.cont-tabla-wrapper {
+  min-width: 0;
+}
+
+.cont-form-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+  position: sticky;
+  top: calc(var(--header-height) + 16px);
+}
+
+.badge-ingreso {
+  background: rgba(74,222,128,0.12);
+  color: var(--success);
+  border-color: rgba(74,222,128,0.25);
+}
+
+.badge-egreso {
+  background: rgba(248,113,113,0.12);
+  color: var(--error);
+  border-color: rgba(248,113,113,0.25);
+}
+
+.cont-saldo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.cont-saldo-cuenta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cont-saldo-valor {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.periodo-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.periodo-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-width: 180px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .cont-layout {
+    grid-template-columns: 1fr;
+  }
+  .cont-form-wrapper {
+    position: static;
+  }
+}
 
 /* Responsive login */
 @media (max-width: 480px) {

@@ -18,7 +18,7 @@
  * Reemplazar con la URL real después de hacer el deploy.
  * Ejemplo: https://script.google.com/macros/s/AKfycb.../exec
  */
-const API_URL = "https://script.google.com/macros/s/AKfycbyCbBAGhHL0ViFYHM7D5S79jx-9yOAifcbfrDPcSLihIv5puOYLZyFjVIYJ9QQiNxriOw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwHo4zE2lUoS96W4K4fkZ0W3apPYYp6RhPDXnts9RnIAPaPwzBDnPnx5PTB0rTcXmOq4A/exec";
 
 // ============================================================
 // CLIENTE HTTP BASE
