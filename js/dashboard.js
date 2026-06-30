@@ -18,46 +18,35 @@ let chartCanales = null;
 
 /**
  * Actualiza todas las estadísticas y gráficas del dashboard.
- * Calcula las estadísticas directamente del cache local
- * para evitar llamadas adicionales al servidor.
+ * IMPORTANTE: ya NO calcula nada del cache local de pedidos (pedidosCache),
+ * porque ese cache ahora solo contiene la página actual (50 registros),
+ * no todos los pedidos. En su lugar pide las estadísticas ya calculadas
+ * al backend (getDashboardStats), que las cachea 5 minutos en el servidor,
+ * así que esta llamada es liviana incluso con miles de pedidos.
  */
 async function actualizarDashboard() {
-  const pedidos = getPedidosCache();
-  calcularYMostrarStats(pedidos);
-  renderizarGraficas(pedidos);
+  try {
+    const stats = await apiGetDashboard();
+    calcularYMostrarStats(stats);
+    renderizarGraficas(stats);
+  } catch (error) {
+    showToast('Error al cargar el dashboard: ' + error.message, 'error');
+    console.error('Error actualizarDashboard:', error);
+  }
 }
 
 /**
- * Calcula estadísticas desde el cache local y actualiza las tarjetas.
- * @param {Array} pedidos - Lista de pedidos del cache
+ * Actualiza las tarjetas del dashboard con las estadísticas
+ * ya calculadas y devueltas por el backend.
+ * @param {Object} stats - { totalPedidos, enPreventa, enTransito, entregados, totalVentas, gananciasTotal, porEstado }
  */
-function calcularYMostrarStats(pedidos) {
-  // Contadores por estado
-  const estadosTransito = ['Despachado', 'En aduanas', 'En viaje internacional'];
-  let totalVentas = 0;
-  let ganancias = 0;
-  let enPreventa = 0;
-  let enTransito = 0;
-  let entregados = 0;
-
-  pedidos.forEach(p => {
-    const venta = parseFloat(p.precio_venta) || 0;
-    const ganancia = parseFloat(p.ganancia) || 0;
-    totalVentas += venta;
-    ganancias += ganancia;
-
-    if (p.estado_pedido === 'Preventa') enPreventa++;
-    if (estadosTransito.includes(p.estado_pedido)) enTransito++;
-    if (p.estado_pedido === 'Entregado') entregados++;
-  });
-
-  // Actualizar tarjetas del dashboard
-  actualizarTarjeta('stat-total-pedidos', pedidos.length);
-  actualizarTarjeta('stat-preventa', enPreventa);
-  actualizarTarjeta('stat-transito', enTransito);
-  actualizarTarjeta('stat-entregados', entregados);
-  actualizarTarjeta('stat-ventas', formatCurrency(totalVentas));
-  actualizarTarjeta('stat-ganancias', formatCurrency(ganancias));
+function calcularYMostrarStats(stats) {
+  actualizarTarjeta('stat-total-pedidos', stats.totalPedidos || 0);
+  actualizarTarjeta('stat-preventa', stats.enPreventa || 0);
+  actualizarTarjeta('stat-transito', stats.enTransito || 0);
+  actualizarTarjeta('stat-entregados', stats.entregados || 0);
+  actualizarTarjeta('stat-ventas', formatCurrency(stats.totalVentas || 0));
+  actualizarTarjeta('stat-ganancias', formatCurrency(stats.gananciasTotal || 0));
 }
 
 /**
@@ -102,23 +91,13 @@ function animarConteo(el, start, end, duration) {
 // ============================================================
 
 /**
- * Renderiza las gráficas del dashboard.
- * Destruye instancias anteriores para evitar duplicados.
- * @param {Array} pedidos - Lista de pedidos para calcular datos
+ * Renderiza las gráficas del dashboard a partir de los conteos
+ * ya calculados en el backend (stats.porEstado / stats.porCanal).
+ * @param {Object} stats - Estadísticas devueltas por apiGetDashboard()
  */
-function renderizarGraficas(pedidos) {
-  const porEstado = {};
-  const porCanal = {};
-
-  pedidos.forEach(p => {
-    const estado = p.estado_pedido || 'Sin estado';
-    const canal = p.canal_venta || 'Sin canal';
-    porEstado[estado] = (porEstado[estado] || 0) + 1;
-    porCanal[canal] = (porCanal[canal] || 0) + 1;
-  });
-
-  renderizarGraficaEstados(porEstado);
-  renderizarGraficaCanales(porCanal);
+function renderizarGraficas(stats) {
+  renderizarGraficaEstados(stats.porEstado || {});
+  renderizarGraficaCanales(stats.porCanal || {});
 }
 
 /**

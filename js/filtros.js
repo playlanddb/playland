@@ -1,9 +1,11 @@
 /**
  * filtros.js - Módulo de búsqueda y filtros avanzados
  * 
- * Maneja la búsqueda en tiempo real y los filtros combinables
- * que operan sobre el cache local para máxima velocidad.
- * No requiere llamadas al servidor para filtrar.
+ * Maneja la búsqueda en tiempo real y los filtros combinables.
+ * Los filtros se envían al BACKEND (no se aplican sobre un cache local),
+ * porque la tabla ya no guarda todos los pedidos en memoria: solo guarda
+ * la página actual. Cada cambio de filtro vuelve a pedir la página 1
+ * con los nuevos criterios.
  */
 
 // ============================================================
@@ -97,69 +99,18 @@ function initFiltros() {
 // ============================================================
 
 /**
- * Aplica todos los filtros activos al cache de pedidos
- * y actualiza la tabla con los resultados.
- * Opera exclusivamente sobre datos locales (sin requests al servidor).
+ * Aplica los filtros activos consultando al BACKEND (página 1) y
+ * actualiza la tabla con los resultados ya paginados/filtrados.
  */
-function aplicarFiltros() {
-  const pedidos = getPedidosCache();
-  let resultado = [...pedidos];
-
-  // Filtro de búsqueda por texto (múltiples campos)
-  if (filtrosActivos.busqueda) {
-    const query = filtrosActivos.busqueda;
-    resultado = resultado.filter(p => {
-      return (
-        String(p.numero_pedido || '').toLowerCase().includes(query) ||
-        String(p.cliente || '').toLowerCase().includes(query) ||
-        String(p.numero_contacto || '').toLowerCase().includes(query) ||
-        String(p.usuario_instagram || '').toLowerCase().includes(query) ||
-        String(p.nombre_producto || '').toLowerCase().includes(query) ||
-        String(p.artista || '').toLowerCase().includes(query)
-      );
-    });
-  }
-
-  // Filtro por estado del pedido
-  if (filtrosActivos.estado) {
-    resultado = resultado.filter(p => p.estado_pedido === filtrosActivos.estado);
-  }
-
-  // Filtro por tipo de producto
-  if (filtrosActivos.tipoProducto) {
-    resultado = resultado.filter(p => p.tipo_producto === filtrosActivos.tipoProducto);
-  }
-
-  // Filtro por canal de venta
-  if (filtrosActivos.canal) {
-    resultado = resultado.filter(p => p.canal_venta === filtrosActivos.canal);
-  }
-
-  // Filtro por rango de fechas
-  if (filtrosActivos.fechaDesde) {
-    resultado = resultado.filter(p => {
-      if (!p.fecha) return false;
-      return p.fecha.substring(0, 10) >= filtrosActivos.fechaDesde;
-    });
-  }
-
-  if (filtrosActivos.fechaHasta) {
-    resultado = resultado.filter(p => {
-      if (!p.fecha) return false;
-      return p.fecha.substring(0, 10) <= filtrosActivos.fechaHasta;
-    });
-  }
-
-  // Renderizar resultados filtrados
-  renderizarTabla(resultado);
-  actualizarContadorResultados(resultado.length);
+async function aplicarFiltros() {
   actualizarIndicadorFiltros();
+  await cargarPedidos(1); // los filtros van dentro de cargarPedidos vía filtrosActivos
 }
 
 /**
- * Limpia todos los filtros activos y restablece la tabla completa.
+ * Limpia todos los filtros activos y recarga la página 1 sin filtros.
  */
-function limpiarFiltros() {
+async function limpiarFiltros() {
   // Resetear estado
   filtrosActivos = {
     busqueda: '',
@@ -184,10 +135,8 @@ function limpiarFiltros() {
     if (el) el.value = '';
   });
 
-  // Restaurar tabla completa
-  renderizarTabla(getPedidosCache());
-  actualizarContadorResultados(getPedidosCache().length);
   actualizarIndicadorFiltros();
+  await cargarPedidos(1);
   showToast('Filtros limpiados', 'info');
 }
 

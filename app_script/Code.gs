@@ -32,6 +32,25 @@ const INVENTORY_COLUMNS = [
 ];
 
 // ============================================================
+// CONFIGURACIÓN DE CACHE (CacheService)
+// ============================================================
+// CacheService.getScriptCache() permite guardar datos hasta 6 horas,
+// pero cada VALOR está limitado a 100KB. Para no superar ese límite
+// con miles de filas, los datos crudos de la hoja se trocean en
+// "chunks" de N filas cada uno y se guardan bajo claves separadas.
+
+const CACHE_TTL_SECONDS = 300;       // 5 minutos de vida para los datos crudos
+const CACHE_CHUNK_SIZE = 200;        // filas por chunk de cache
+
+const PEDIDOS_CACHE_META_KEY = 'pedidos_cache_meta_v1';
+const PEDIDOS_CACHE_CHUNK_PREFIX = 'pedidos_chunk_v1_';
+
+const INVENTARIO_CACHE_META_KEY = 'inventario_cache_meta_v1';
+const INVENTARIO_CACHE_CHUNK_PREFIX = 'inventario_chunk_v1_';
+
+const DASHBOARD_CACHE_KEY = 'dashboard_stats_v1';
+
+// ============================================================
 // PUNTO DE ENTRADA PRINCIPAL
 // ============================================================
 
@@ -42,13 +61,13 @@ function doGet(e) {
 
     switch (action) {
       // --- Pedidos ---
-      case 'getPedidos':       result = getPedidos(); break;
+      case 'getPedidos':       result = getPedidos(e.parameter); break;
       case 'createPedido':     result = createPedido(e.parameter); break;
       case 'updatePedido':     result = updatePedido(e.parameter); break;
       case 'deletePedido':     result = deletePedido(e.parameter.id_pedido); break;
       case 'getDashboard':     result = getDashboardStats(); break;
       // --- Inventario ---
-      case 'getInventario':    result = getInventario(); break;
+      case 'getInventario':    result = getInventario(e.parameter); break;
       case 'createProducto':   result = createProducto(e.parameter); break;
       case 'updateProducto':   result = updateProducto(e.parameter); break;
       case 'deleteProducto':   result = deleteProducto(e.parameter.id_producto); break;
@@ -72,24 +91,118 @@ function doGet(e) {
 // CRUD PEDIDOS
 // ============================================================
 
-function getPedidos() {
-  const sheet = getSheet();
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return { success: true, data: [] };
+/**
+ * Obtiene pedidos de forma PAGINADA, con filtros opcionales y
+ * ordenados por fecha más reciente primero.
+ *
+ * Los datos crudos de la hoja se leen en un solo getRange().getValues()
+ * (nunca celda por celda) y se guardan en CacheService durante 5 minutos,
+ * así que peticiones repetidas (cambiar de página, escribir en el buscador,
+ * refrescar el dashboard) no vuelven a golpear Google Sheets cada vez.
+ *
+ * @param {Object} params - { page, limit, search, estado, tipoProducto, canal, fechaDesde, fechaHasta }
+ * @returns {Object} { success, data, total, page, limit, totalPages }
+ */
+function getPedidos(params) {
+  params = params || {};
 
-  const pedidos = data.slice(1).map(row => {
+  const page  = Math.max(1, parseInt(params.page, 10) || 1);
+  const limit = Math.max(1, parseInt(params.limit, 10) || 50);
+
+  const search       = String(params.search || '').toLowerCase().trim();
+  const estado       = params.estado || '';
+  const tipoProducto = params.tipoProducto || '';
+  const canal        = params.canal || '';
+  const fechaDesde   = params.fechaDesde || '';
+  const fechaHasta   = params.fechaHasta || '';
+
+  const rawRows = getPedidosRawData(); // array de arrays (ya cacheado), fecha como 'yyyy-MM-dd'
+
+  // Convertir filas a objetos
+  let pedidos = rawRows.map(row => {
     const pedido = {};
-    COLUMNS.forEach((col, i) => {
-      if (col === 'fecha' && row[i] instanceof Date) {
-        pedido[col] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      } else {
-        pedido[col] = row[i];
-      }
-    });
+    COLUMNS.forEach((col, i) => { pedido[col] = row[i]; });
     return pedido;
   });
 
-  return { success: true, data: pedidos };
+  // ── Filtros (se aplican en memoria, sobre el set ya leído) ──
+  if (search) {
+    pedidos = pedidos.filter(p =>
+      String(p.numero_pedido || '').toLowerCase().includes(search) ||
+      String(p.cliente || '').toLowerCase().includes(search) ||
+      String(p.numero_contacto || '').toLowerCase().includes(search) ||
+      String(p.usuario_instagram || '').toLowerCase().includes(search) ||
+      String(p.nombre_producto || '').toLowerCase().includes(search) ||
+      String(p.artista || '').toLowerCase().includes(search)
+    );
+  }
+  if (estado)       pedidos = pedidos.filter(p => p.estado_pedido === estado);
+  if (tipoProducto) pedidos = pedidos.filter(p => p.tipo_producto === tipoProducto);
+  if (canal)        pedidos = pedidos.filter(p => p.canal_venta === canal);
+  if (fechaDesde)    pedidos = pedidos.filter(p => String(p.fecha || '').substring(0, 10) >= fechaDesde);
+  if (fechaHasta)    pedidos = pedidos.filter(p => String(p.fecha || '').substring(0, 10) <= fechaHasta);
+
+  // ── Orden: más reciente primero (por fecha, y por id como desempate) ──
+  pedidos.sort((a, b) => {
+    const fa = String(a.fecha || ''), fb = String(b.fecha || '');
+    if (fa !== fb) return fa < fb ? 1 : -1;
+    return String(b.id_pedido || '').localeCompare(String(a.id_pedido || ''));
+  });
+
+  // ── Paginación ──
+  const total      = pedidos.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const safePage   = Math.min(page, totalPages);
+  const start      = (safePage - 1) * limit;
+  const pageData   = pedidos.slice(start, start + limit);
+
+  return {
+    success: true,
+    data: pageData,
+    total: total,
+    page: safePage,
+    limit: limit,
+    totalPages: totalPages
+  };
+}
+
+/**
+ * Lee los datos crudos (sin encabezado) de la hoja de pedidos.
+ * Usa CacheService para evitar lecturas repetidas de Sheets; si el cache
+ * expiró o fue invalidado, hace UNA sola lectura con getRange().getValues()
+ * (rango exacto, nunca celda por celda) y vuelve a poblar el cache.
+ * La columna 'fecha' se normaliza a texto 'yyyy-MM-dd' antes de cachear,
+ * para que el resultado sea idéntico venga o no del cache.
+ * @returns {Array<Array>} Filas crudas (cada fila = array en el orden de COLUMNS)
+ */
+function getPedidosRawData() {
+  const cached = readChunkedCache(PEDIDOS_CACHE_META_KEY, PEDIDOS_CACHE_CHUNK_PREFIX);
+  if (cached !== null) return cached;
+
+  const sheet = getSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const fechaIndex = COLUMNS.indexOf('fecha');
+  const data = sheet.getRange(2, 1, lastRow - 1, COLUMNS.length).getValues();
+
+  data.forEach(row => {
+    if (row[fechaIndex] instanceof Date) {
+      row[fechaIndex] = Utilities.formatDate(row[fechaIndex], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+  });
+
+  writeChunkedCache(PEDIDOS_CACHE_META_KEY, PEDIDOS_CACHE_CHUNK_PREFIX, data);
+  return data;
+}
+
+/**
+ * Invalida (borra) el cache de pedidos y el cache del dashboard.
+ * Debe llamarse después de cualquier creación, edición o eliminación de pedidos.
+ */
+function invalidatePedidosCache() {
+  clearChunkedCache(PEDIDOS_CACHE_META_KEY, PEDIDOS_CACHE_CHUNK_PREFIX);
+  CacheService.getScriptCache().remove(DASHBOARD_CACHE_KEY);
 }
 
 function createPedido(params) {
@@ -115,6 +228,7 @@ function createPedido(params) {
   ];
 
   sheet.appendRow(newRow);
+  invalidatePedidosCache();
 
   // ── NUEVO: descontar stock si el pedido viene vinculado a un producto del inventario
   if (params.id_producto_inventario) {
@@ -162,6 +276,7 @@ function updatePedido(params) {
   ];
 
   sheet.getRange(rowIndex, 1, 1, COLUMNS.length).setValues([updatedRow]);
+  invalidatePedidosCache();
   return { success: true, message: 'Pedido actualizado correctamente' };
 }
 
@@ -171,6 +286,7 @@ function deletePedido(idPedido) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(idPedido)) {
       sheet.deleteRow(i + 1);
+      invalidatePedidosCache();
       return { success: true, message: 'Pedido eliminado correctamente' };
     }
   }
@@ -186,24 +302,67 @@ function deletePedido(idPedido) {
  * Calcula automáticamente el estado (disponible/agotado/bajo stock)
  * basado en las unidades disponibles.
  */
-function getInventario() {
-  const sheet = getInventorySheet();
-  const data  = sheet.getDataRange().getValues();
-  if (data.length <= 1) return { success: true, data: [] };
+/**
+ * Obtiene todos los productos del inventario.
+ * Calcula automáticamente el estado (disponible/agotado/bajo stock)
+ * basado en las unidades disponibles.
+ *
+ * NOTA: a diferencia de getPedidos(), aquí se sigue devolviendo el listado
+ * COMPLETO (no paginado), porque el frontend lo usa para el autocompletado
+ * del formulario de pedidos y para las tarjetas de stats del inventario,
+ * que necesitan ver todos los productos a la vez. Como el catálogo de
+ * productos suele ser mucho más pequeño que el histórico de pedidos, el
+ * cuello de botella aquí no es el tamaño sino las lecturas repetidas a
+ * Sheets, así que se resuelve con CacheService (igual que en pedidos).
+ * Si en el futuro el inventario también crece a miles de filas, se puede
+ * paginar con el mismo patrón usado en getPedidos().
+ *
+ * @param {Object} params - reservado para uso futuro (filtros/paginación)
+ */
+function getInventario(params) {
+  const rawRows = getInventarioRawData();
+  if (rawRows.length === 0) return { success: true, data: [] };
 
-  const productos = data.slice(1).map(row => {
+  const productos = rawRows.map(row => {
     const producto = {};
-    INVENTORY_COLUMNS.forEach((col, i) => {
-      if (col === 'fecha_ingreso' && row[i] instanceof Date) {
-        producto[col] = Utilities.formatDate(row[i], Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      } else {
-        producto[col] = row[i];
-      }
-    });
+    INVENTORY_COLUMNS.forEach((col, i) => { producto[col] = row[i]; });
     return producto;
   });
 
   return { success: true, data: productos };
+}
+
+/**
+ * Lee los datos crudos del inventario (sin encabezado), con cache,
+ * igual patrón que getPedidosRawData().
+ */
+function getInventarioRawData() {
+  const cached = readChunkedCache(INVENTARIO_CACHE_META_KEY, INVENTARIO_CACHE_CHUNK_PREFIX);
+  if (cached !== null) return cached;
+
+  const sheet = getInventorySheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const fechaIndex = INVENTORY_COLUMNS.indexOf('fecha_ingreso');
+  const data = sheet.getRange(2, 1, lastRow - 1, INVENTORY_COLUMNS.length).getValues();
+
+  data.forEach(row => {
+    if (row[fechaIndex] instanceof Date) {
+      row[fechaIndex] = Utilities.formatDate(row[fechaIndex], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    }
+  });
+
+  writeChunkedCache(INVENTARIO_CACHE_META_KEY, INVENTARIO_CACHE_CHUNK_PREFIX, data);
+  return data;
+}
+
+/**
+ * Invalida el cache de inventario.
+ * Debe llamarse tras crear, editar, eliminar o ajustar stock de productos.
+ */
+function invalidateInventarioCache() {
+  clearChunkedCache(INVENTARIO_CACHE_META_KEY, INVENTARIO_CACHE_CHUNK_PREFIX);
 }
 
 /**
@@ -231,6 +390,7 @@ function createProducto(params) {
   ];
 
   sheet.appendRow(newRow);
+  invalidateInventarioCache();
   return { success: true, message: 'Producto agregado al inventario' };
 }
 
@@ -264,6 +424,7 @@ function updateProducto(params) {
   ];
 
   sheet.getRange(rowIndex, 1, 1, INVENTORY_COLUMNS.length).setValues([updatedRow]);
+  invalidateInventarioCache();
   return { success: true, message: 'Producto actualizado correctamente' };
 }
 
@@ -276,6 +437,7 @@ function deleteProducto(idProducto) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(idProducto)) {
       sheet.deleteRow(i + 1);
+      invalidateInventarioCache();
       return { success: true, message: 'Producto eliminado del inventario' };
     }
   }
@@ -308,6 +470,7 @@ function ajustarStock(params) {
   // Actualizar solo columnas de unidades y estado (col 5 y 8)
   sheet.getRange(rowIndex, 5).setValue(nuevaCantidad);
   sheet.getRange(rowIndex, 8).setValue(nuevoEstado);
+  invalidateInventarioCache();
 
   return {
     success: true,
@@ -320,36 +483,61 @@ function ajustarStock(params) {
 // DASHBOARD
 // ============================================================
 
+/**
+ * Calcula las estadísticas del dashboard.
+ * Se cachea el resultado final (un objeto pequeño) durante 5 minutos,
+ * así que si el usuario navega entre secciones o refresca el dashboard
+ * varias veces seguidas, no se recalcula ni se vuelve a leer Sheets
+ * cada vez. El cache se invalida automáticamente al crear, editar o
+ * eliminar un pedido (ver invalidatePedidosCache).
+ */
 function getDashboardStats() {
-  const sheet = getSheet();
-  const data  = sheet.getDataRange().getValues();
-
-  if (data.length <= 1) {
-    return { success: true, stats: { totalPedidos:0, enPreventa:0, enTransito:0, entregados:0, totalVentas:0, gananciasTotal:0, porEstado:{} } };
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(DASHBOARD_CACHE_KEY);
+  if (cached !== null) {
+    return JSON.parse(cached);
   }
 
-  const pedidos = data.slice(1);
+  const rawRows = getPedidosRawData();
+
+  if (rawRows.length === 0) {
+    const empty = { success: true, stats: { totalPedidos:0, enPreventa:0, enTransito:0, entregados:0, totalVentas:0, gananciasTotal:0, porEstado:{}, porCanal:{} } };
+    cache.put(DASHBOARD_CACHE_KEY, JSON.stringify(empty), CACHE_TTL_SECONDS);
+    return empty;
+  }
+
+  const idxEstado = COLUMNS.indexOf('estado_pedido');
+  const idxVenta  = COLUMNS.indexOf('precio_venta');
+  const idxGanancia = COLUMNS.indexOf('ganancia');
+  const idxCanal  = COLUMNS.indexOf('canal_venta');
+
   let totalVentas = 0, gananciasTotal = 0;
   const porEstado = {};
+  const porCanal = {};
   const estadosTransito = ['Despachado', 'En aduanas', 'En viaje internacional'];
 
-  pedidos.forEach(row => {
-    const estado = row[6] || 'Sin estado';
-    totalVentas    += parseFloat(row[8]) || 0;
-    gananciasTotal += parseFloat(row[10]) || 0;
+  rawRows.forEach(row => {
+    const estado = row[idxEstado] || 'Sin estado';
+    const canal  = row[idxCanal] || 'Sin canal';
+    totalVentas    += parseFloat(row[idxVenta]) || 0;
+    gananciasTotal += parseFloat(row[idxGanancia]) || 0;
     porEstado[estado] = (porEstado[estado] || 0) + 1;
+    porCanal[canal] = (porCanal[canal] || 0) + 1;
   });
 
-  return {
+  const result = {
     success: true,
     stats: {
-      totalPedidos: pedidos.length,
+      totalPedidos: rawRows.length,
       enPreventa:   porEstado['Preventa'] || 0,
       enTransito:   estadosTransito.reduce((acc, e) => acc + (porEstado[e] || 0), 0),
       entregados:   porEstado['Entregado'] || 0,
-      totalVentas, gananciasTotal, porEstado
+      totalVentas, gananciasTotal, porEstado, porCanal
     }
   };
+
+  cache.put(DASHBOARD_CACHE_KEY, JSON.stringify(result), CACHE_TTL_SECONDS);
+  return result;
 }
 
 // ============================================================
@@ -390,4 +578,81 @@ function getInventorySheet() {
     r.setBackground('#1a1a2e'); r.setFontColor('#ffffff'); r.setFontWeight('bold');
   }
   return sheet;
+}
+
+// ============================================================
+// HELPERS DE CACHE TROCEADO (CHUNKED CACHE)
+// ============================================================
+// CacheService.getScriptCache() solo admite valores de hasta 100KB.
+// Estas 3 funciones genéricas permiten guardar/leer/borrar un array
+// de filas (2D) de cualquier tamaño, partiéndolo en varios "chunks"
+// bajo claves numeradas, controladas por una clave "meta" que guarda
+// cuántos chunks hay. Se reutilizan tanto para pedidos como inventario.
+
+/**
+ * Intenta leer un array de filas previamente cacheado.
+ * @returns {Array<Array>|null} Las filas si el cache es válido, o null si no existe/expiró.
+ */
+function readChunkedCache(metaKey, chunkPrefix) {
+  const cache = CacheService.getScriptCache();
+  const metaRaw = cache.get(metaKey);
+  if (!metaRaw) return null;
+
+  let meta;
+  try {
+    meta = JSON.parse(metaRaw);
+  } catch (e) {
+    return null;
+  }
+
+  if (meta.chunkCount === 0) return [];
+
+  const chunkKeys = [];
+  for (let i = 0; i < meta.chunkCount; i++) chunkKeys.push(chunkPrefix + i);
+
+  const chunksMap = cache.getAll(chunkKeys);
+  const rows = [];
+  for (let i = 0; i < meta.chunkCount; i++) {
+    const raw = chunksMap[chunkPrefix + i];
+    if (raw === undefined) return null; // algún chunk expiró antes que el meta -> cache inválido
+    rows.push.apply(rows, JSON.parse(raw));
+  }
+  return rows;
+}
+
+/**
+ * Guarda un array de filas en cache, troceado en chunks de CACHE_CHUNK_SIZE.
+ */
+function writeChunkedCache(metaKey, chunkPrefix, rows) {
+  const cache = CacheService.getScriptCache();
+  const chunkCount = Math.ceil(rows.length / CACHE_CHUNK_SIZE);
+
+  const payload = {};
+  for (let i = 0; i < chunkCount; i++) {
+    const chunk = rows.slice(i * CACHE_CHUNK_SIZE, (i + 1) * CACHE_CHUNK_SIZE);
+    payload[chunkPrefix + i] = JSON.stringify(chunk);
+  }
+
+  if (chunkCount > 0) cache.putAll(payload, CACHE_TTL_SECONDS);
+  cache.put(metaKey, JSON.stringify({ chunkCount: chunkCount, total: rows.length }), CACHE_TTL_SECONDS);
+}
+
+/**
+ * Borra un cache troceado por completo (meta + todos sus chunks).
+ */
+function clearChunkedCache(metaKey, chunkPrefix) {
+  const cache = CacheService.getScriptCache();
+  const metaRaw = cache.get(metaKey);
+  if (metaRaw) {
+    try {
+      const meta = JSON.parse(metaRaw);
+      const keys = [metaKey];
+      for (let i = 0; i < meta.chunkCount; i++) keys.push(chunkPrefix + i);
+      cache.removeAll(keys);
+      return;
+    } catch (e) {
+      // si el meta está corrupto, al menos borramos esa clave
+    }
+  }
+  cache.remove(metaKey);
 }

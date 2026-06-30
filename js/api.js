@@ -18,7 +18,7 @@
  * Reemplazar con la URL real después de hacer el deploy.
  * Ejemplo: https://script.google.com/macros/s/AKfycb.../exec
  */
-const API_URL = "https://script.google.com/macros/s/AKfycbwHo4zE2lUoS96W4K4fkZ0W3apPYYp6RhPDXnts9RnIAPaPwzBDnPnx5PTB0rTcXmOq4A/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx2QPnrHlMtzhVBZaYzKVxChFiCqiGpbvTqz-3PFzIjp0PfKp9NFWfV35BG3RkFgcNthg/exec";
 
 // ============================================================
 // CLIENTE HTTP BASE
@@ -76,12 +76,31 @@ async function apiRequest(params) {
 // ============================================================
 
 /**
- * Obtiene todos los pedidos desde Google Sheets.
- * @returns {Promise<Array>} Lista de pedidos
+ * Obtiene una PÁGINA de pedidos desde Google Sheets, con filtros opcionales.
+ * @param {Object} opciones - { page, limit, search, estado, tipoProducto, canal, fechaDesde, fechaHasta }
+ * @returns {Promise<Object>} { data, total, page, limit, totalPages }
  */
-async function apiGetPedidos() {
-  const response = await apiRequest({ action: 'getPedidos' });
-  return response.data || [];
+async function apiGetPedidos(opciones = {}) {
+  const params = {
+    action: 'getPedidos',
+    page: opciones.page || 1,
+    limit: opciones.limit || 50,
+    search: opciones.search || '',
+    estado: opciones.estado || '',
+    tipoProducto: opciones.tipoProducto || '',
+    canal: opciones.canal || '',
+    fechaDesde: opciones.fechaDesde || '',
+    fechaHasta: opciones.fechaHasta || ''
+  };
+
+  const response = await apiRequest(params);
+  return {
+    data: response.data || [],
+    total: response.total || 0,
+    page: response.page || 1,
+    limit: response.limit || params.limit,
+    totalPages: response.totalPages || 1
+  };
 }
 
 /**

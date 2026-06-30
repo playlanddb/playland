@@ -10,25 +10,60 @@
 // ============================================================
 
 /**
- * Cache local de todos los pedidos cargados desde el backend.
- * Se actualiza con cada operación exitosa.
+ * Cache local de SOLO la página de pedidos actualmente cargada
+ * (no de todos los pedidos). Se actualiza con cada operación exitosa.
  */
 let pedidosCache = [];
+
+/**
+ * Estado de paginación de la tabla de pedidos.
+ */
+let paginacionPedidos = {
+  page: 1,
+  limit: 50,
+  total: 0,
+  totalPages: 1
+};
 
 // ============================================================
 // CARGA Y RENDERIZADO
 // ============================================================
 
 /**
- * Carga todos los pedidos desde el backend y actualiza la tabla.
- * Es la función principal que inicializa la vista de pedidos.
+ * Carga UNA PÁGINA de pedidos desde el backend (con los filtros activos
+ * de filtros.js, si los hay) y actualiza la tabla + controles de paginación.
+ * Es la función principal que inicializa/actualiza la vista de pedidos.
+ *
+ * @param {number} [page] - Página a cargar. Si no se indica, usa la página actual.
  */
-async function cargarPedidos() {
+async function cargarPedidos(page) {
   showLoader('Cargando pedidos...');
   try {
-    pedidosCache = await apiGetPedidos();
+    const filtros = (typeof filtrosActivos !== 'undefined') ? filtrosActivos : {};
+    const targetPage = page || paginacionPedidos.page || 1;
+
+    const respuesta = await apiGetPedidos({
+      page: targetPage,
+      limit: paginacionPedidos.limit,
+      search: filtros.busqueda || '',
+      estado: filtros.estado || '',
+      tipoProducto: filtros.tipoProducto || '',
+      canal: filtros.canal || '',
+      fechaDesde: filtros.fechaDesde || '',
+      fechaHasta: filtros.fechaHasta || ''
+    });
+
+    pedidosCache = respuesta.data;
+    paginacionPedidos = {
+      page: respuesta.page,
+      limit: respuesta.limit,
+      total: respuesta.total,
+      totalPages: respuesta.totalPages
+    };
+
     renderizarTabla(pedidosCache);
-    actualizarContadorResultados(pedidosCache.length);
+    actualizarContadorResultados(paginacionPedidos.total);
+    renderizarControlesPaginacion();
   } catch (error) {
     showToast('Error al cargar pedidos: ' + error.message, 'error');
     console.error('Error cargarPedidos:', error);
@@ -142,12 +177,56 @@ function renderizarTabla(pedidos) {
 
 /**
  * Actualiza el contador de resultados mostrado sobre la tabla.
- * @param {number} count - Número de pedidos visibles
+ * @param {number} count - Número total de pedidos que cumplen los filtros (no solo los de la página)
  */
 function actualizarContadorResultados(count) {
   const contador = document.getElementById('resultado-count');
   if (contador) {
     contador.textContent = `${count} pedido${count !== 1 ? 's' : ''}`;
+  }
+}
+
+// ============================================================
+// PAGINACIÓN
+// ============================================================
+
+/**
+ * Pinta los controles de paginación (Anterior / página actual / Siguiente)
+ * dentro de #paginacion-pedidos, según el estado de paginacionPedidos.
+ */
+function renderizarControlesPaginacion() {
+  const cont = document.getElementById('paginacion-pedidos');
+  if (!cont) return;
+
+  const { page, totalPages, total } = paginacionPedidos;
+
+  if (total === 0) {
+    cont.innerHTML = '';
+    return;
+  }
+
+  cont.innerHTML = `
+    <button class="btn btn-secondary btn-paginacion" id="btn-pagina-anterior" ${page <= 1 ? 'disabled' : ''}>
+      <i class="fa-solid fa-chevron-left"></i> Anterior
+    </button>
+    <span class="paginacion-info">Página ${page} de ${totalPages}</span>
+    <button class="btn btn-secondary btn-paginacion" id="btn-pagina-siguiente" ${page >= totalPages ? 'disabled' : ''}>
+      Siguiente <i class="fa-solid fa-chevron-right"></i>
+    </button>
+  `;
+
+  const btnAnterior = document.getElementById('btn-pagina-anterior');
+  if (btnAnterior) {
+    btnAnterior.addEventListener('click', () => {
+      if (paginacionPedidos.page > 1) cargarPedidos(paginacionPedidos.page - 1);
+    });
+  }
+
+  const btnSiguiente = document.getElementById('btn-pagina-siguiente');
+  if (btnSiguiente) {
+    btnSiguiente.addEventListener('click', () => {
+      if (paginacionPedidos.page < paginacionPedidos.totalPages) cargarPedidos(paginacionPedidos.page + 1);
+    });
   }
 }
 
@@ -201,15 +280,18 @@ async function guardarPedido() {
 
     closePedidoModal();
 
-    if (esEdicion) {
-      await cargarPedidos();
-      aplicarFiltros();
-    } else {
-      await cargarPedidos();
-    }
+    // Recargar solo la página actual (con los filtros activos), no todo el dataset
+    await cargarPedidos(paginacionPedidos.page);
 
+    // El dashboard depende de totales/ganancias, así que siempre se refresca
+    // (es una llamada cacheada y liviana en el backend).
     await actualizarDashboard();
-    await cargarInventario();
+
+    // El inventario solo cambia si el pedido se vinculó a un producto del stock
+    // (solo ocurre al CREAR un pedido nuevo, no al editar).
+    if (!esEdicion && datos.id_producto_inventario) {
+      await cargarInventario();
+    }
 
   } catch (error) {
     showToast('Error al guardar: ' + error.message, 'error');
@@ -268,10 +350,11 @@ async function eliminarPedido(idPedido) {
   try {
     await apiDeletePedido(idPedido);
     showToast('Pedido eliminado correctamente', 'success');
-    await cargarPedidos();
-    aplicarFiltros();
+    // Recarga solo la página actual (el backend ajusta la página si ya no existe)
+    await cargarPedidos(paginacionPedidos.page);
     await actualizarDashboard();
-    await cargarInventario();
+    // Eliminar un pedido no devuelve stock al inventario, así que no hace
+    // falta recargar inventario aquí.
   } catch (error) {
     showToast('Error al eliminar: ' + error.message, 'error');
     console.error('Error eliminarPedido:', error);
