@@ -18,7 +18,7 @@
  * Reemplazar con la URL real después de hacer el deploy.
  * Ejemplo: https://script.google.com/macros/s/AKfycb.../exec
  */
-const API_URL = "https://script.google.com/macros/s/AKfycbx2QPnrHlMtzhVBZaYzKVxChFiCqiGpbvTqz-3PFzIjp0PfKp9NFWfV35BG3RkFgcNthg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxcf1CceiDH3lBMcxeFxq5vi2-3H0AFlPOZ7jHvkC_kbgwv_0lZYbAcplWPJg7OVOlS/exec";
 
 // ============================================================
 // CLIENTE HTTP BASE
@@ -84,7 +84,7 @@ async function apiGetPedidos(opciones = {}) {
   const params = {
     action: 'getPedidos',
     page: opciones.page || 1,
-    limit: opciones.limit || 50,
+    limit: opciones.limit || 200,
     search: opciones.search || '',
     estado: opciones.estado || '',
     tipoProducto: opciones.tipoProducto || '',

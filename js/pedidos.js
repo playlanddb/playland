@@ -20,7 +20,7 @@ let pedidosCache = [];
  */
 let paginacionPedidos = {
   page: 1,
-  limit: 50,
+  limit: 200,
   total: 0,
   totalPages: 1
 };
